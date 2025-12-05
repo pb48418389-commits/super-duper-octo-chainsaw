@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="google-site-verification" content="juwvLNu56wboqD0szIwwpYERVsUCNnODcU5VcJfl7KE" />
+  <title>Conversor de Calendário</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Manrope', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #fff;;
+      color: #000;
+      overflow-y: auto;
+      min-height: 100vh;
+      font-size: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding-bottom: 40px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin: 0;
+      color: #000;
+    }
+    input, button {
+      padding: 8px 12px;
+      margin: 5px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      font-family: Manrope;
+      background: #333;
+      color: #fff;
+    }
+    button {
+      cursor: pointer;
+      background: #007bff;
+      color: #fff;
+      font-weight: bold;
+      font-family: Inter;
+    }
+    .moon-container {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+      
+    }
+    .moon-emoji {
+      font-size: 5rem;
+      
+      
+    }
+    .calendar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      width: 100%;
+      max-width: 600px;
+    }
+    .card {
+      background: #ced4d6;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      font-weight: bold;
+      border: 1px solid black;
+    }
+    .title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 1.2em;
+    }
+    .weekday {
+      font-size: 1rem;
+      color: #000;
+      margin-bottom: 4px;
+      opacity: 0.7
+    }
+    .next-holiday {
+      margin-top: 6px;
+      font-size: 0.95em;
+      color: #007bff;
+    }
+    .holiday {
+      color: #ff0000;
+      font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Conversor de Calendário</h1>
+    <input id="dt" type="date" step="1" />
+    <button id="btn-now">Hoje</button>
+    <div class="moon-container">
+      <div id="moon" class="moon-emoji">🌑</div>
+    </div>
+
+    <div class="calendar-row">
+      <div class="card" id="greg-card">
+        <div class="title">Calendário Gregoriano</div>
+        <div id="greg-weekday" class="weekday"></div>
+        <div id="greg-big"></div>
+        <div id="greg-next-holiday" class="next-holiday"></div>
+      </div>
+      <div class="card" id="julian-card">
+        <div class="title">Calendário Juliano</div>
+        <div id="julian-weekday" class="weekday"></div>
+        <div id="julian"></div>
+      </div>
+      <div class="card" id="hebrew-card">
+        <div class="title">Calendário Hebraico</div>
+        <div id="hebrew-weekday" class="weekday"></div>
+        <div id="hebrew"></div>
+      </div>
+      <div class="card" id="islamic-card">
+        <div class="title">Calendário Islâmico</div>
+        <div id="islamic-weekday" class="weekday"></div>
+        <div id="islamic"></div>
+      </div>
+      <div class="card" id="pedrian-card">
+        <div class="title">Calendário Pedriano</div>
+        <div id="pedrian-weekday" class="weekday"></div>
+        <div id="pedrian"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const islWeekdays=["Yaum al-Ahad","Yaum al-Ithnayn","Yaum ath-Thalatha","Yaum al-Arba'a","Yaum al-Khamis","Yaum al-Jum'a","Yaum as-Sabt"];
+    const hebWeekdays=["Yom Rishon (יום ראשון)","Yom Sheni (יום שני)","Yom Shlishi (יום שלישי)","Yom Revi'i (יום רביעי)","Yom Hamishi (יום חמישי)","Yom Shishi (יום שישי)","Shabat (שבת)"];
+    const gregWeekdays=["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
+    const pedWeekdays=["Adedty","Lathuj","Sartunik"];
+    const PED_MONTHS=[{name:'Adrump',len:4},{name:'Catuji',len:2},{name:'Waryui',len:4},{name:'Carumk',len:3},{name:'Dafer',len:4},{name:'Farertyi',len:2}];
+    const DAY_MS=86400000;
+    const YEAR_MS=19*DAY_MS;
+    const EPOCH_PED=new Date(2023,11,16,18,0,0);
+
+    const holidays={
+      gregorian:{'01-01':'Ano Novo'},
+      hebrew:{'01-01':'Rosh Hashaná'},
+      islamic:{'01-09':'Ramadã'},
+      julian:{'01-01':'Ano Novo Juliano'},
+      pedrian:{'01-01':'Pedriano Ano Novo'}
+    };
+
+    function pad2(n){return String(n).padStart(2,'0');}
+    function pad4(n){return String(n).padStart(4,'0');}
+    function isHoliday(calendar,str){ return holidays[calendar] && holidays[calendar][str]; }
+
+    function formatNumbered(day, month, year, calendar){
+        const str = `${pad4(year)}/${pad2(month)}/${pad2(day)}`;
+        const holidayStr = isHoliday(calendar,str);
+        return str + (holidayStr ? ` <span class='holiday'>${holidays[calendar][str]}</span>` : '');
+    }
+
+    function gregorianHorizontal(date){
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
+        return formatNumbered(day, month, year, 'gregorian');
+    }
+
+    function julianHorizontal(date){
+        const julianDate = new Date(date.getTime() - 13*DAY_MS);
+        const day = julianDate.getDate();
+        const month = julianDate.getMonth() + 1;
+        const year = julianDate.getFullYear();
+        return formatNumbered(day, month, year, 'julian');
+    }
+
+    function hebrewHorizontal(date){
+        const day = parseInt(new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric'}).format(date),10);
+        const month = parseInt(new Intl.DateTimeFormat('en-u-ca-hebrew',{month:'numeric'}).format(date),10);
+        const year = parseInt(new Intl.DateTimeFormat('en-u-ca-hebrew',{year:'numeric'}).format(date),10);
+        return formatNumbered(day, month, year, 'hebrew');
+    }
+
+    function islamicHorizontal(date){
+        const day = parseInt(new Intl.DateTimeFormat('en-u-ca-islamic',{day:'numeric'}).format(date),10);
+        const month = parseInt(new Intl.DateTimeFormat('en-u-ca-islamic',{month:'numeric'}).format(date),10);
+        const year = parseInt(new Intl.DateTimeFormat('en-u-ca-islamic',{year:'numeric'}).format(date),10);
+        return formatNumbered(day, month, year, 'islamic');
+    }
+
+    function pedrianHorizontal(date){
+        const diffMs=date-EPOCH_PED;
+        const yearIndex=Math.floor(diffMs/YEAR_MS);
+        const year=yearIndex+1;
+        const msIntoYear=diffMs%YEAR_MS;
+        const dayIntoYear=Math.floor(msIntoYear/DAY_MS);
+        let m=0,acc=0;
+        while(m<PED_MONTHS.length && dayIntoYear>=acc+PED_MONTHS[m].len) acc+=PED_MONTHS[m++].len;
+        const dayInMonth=dayIntoYear-acc+1;
+        const month = m+1;
+        return formatNumbered(dayInMonth, month, year, 'pedrian');
+    }
+
+    function moonPhaseEmoji(date){
+      const synodicMonth=29.53;
+      const newMoon=new Date(2000,0,6,18,14,0).getTime();
+      const diffDays=(date.getTime()-newMoon)/(1000*60*60*24);
+      const phase=(diffDays%synodicMonth)/synodicMonth;
+      const moonEl=document.getElementById('moon');
+      if(phase<0.03||phase>0.97) moonEl.textContent='🌑';
+      else if(phase<0.22) moonEl.textContent='🌒';
+      else if(phase<0.28) moonEl.textContent='🌓';
+      else if(phase<0.47) moonEl.textContent='🌔';
+      else if(phase<0.53) moonEl.textContent='🌕';
+      else if(phase<0.72) moonEl.textContent='🌖';
+      else if(phase<0.78) moonEl.textContent='🌗';
+      else moonEl.textContent='🌘';
+    }
+
+    function renderAll(date){
+      document.getElementById('greg-big').innerHTML = gregorianHorizontal(date);
+      document.getElementById('greg-weekday').textContent = gregWeekdays[date.getDay()];
+
+      document.getElementById('julian').innerHTML = julianHorizontal(date);
+      document.getElementById('julian-weekday').textContent = gregWeekdays[new Date(date.getTime()-13*DAY_MS).getDay()];
+
+      document.getElementById('hebrew').innerHTML = hebrewHorizontal(date);
+      document.getElementById('hebrew-weekday').textContent = hebWeekdays[date.getDay()];
+
+      document.getElementById('islamic').innerHTML = islamicHorizontal(date);
+      document.getElementById('islamic-weekday').textContent = islWeekdays[date.getDay()];
+
+      document.getElementById('pedrian').innerHTML = pedrianHorizontal(date);
+      const pedDayIndex=Math.floor(((date-EPOCH_PED)/DAY_MS)%3);
+      document.getElementById('pedrian-weekday').textContent = pedWeekdays[pedDayIndex];
+
+      moonPhaseEmoji(date);
+    }
+
+    const input=document.getElementById('dt');
+    const btnNow=document.getElementById('btn-now');
+
+    btnNow.onclick=()=>{const now=new Date(); setInputTo(now); renderAll(now);};
+    function setInputTo(date){
+      input.value=`${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
+    }
+    input.oninput=()=>{ if(input.value) renderAll(new Date(input.value)); };
+
+    (function init(){ const now=new Date(); setInputTo(now); renderAll(now); })();
+  </script>
+</body>
+</html>
+  <footer style="text-align: center; padding: 15px;  font-size: 14px;">
+  &copy; 2025 João Pedro Sousa Barros. Todos os direitos reservados.
+</footer>
